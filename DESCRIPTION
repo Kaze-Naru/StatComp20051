@@ -1,0 +1,17 @@
+Package: StatComp20051
+Type: Package
+Title: Variable selection in regression with compositional covariates
+Version: 1.0
+Date: 2020-12-08
+Author: Qihang Yang
+Maintainer: Qihang Yang <yqh1997@mail.ustc.edu.cn>
+Description: We propose an  L1 regularization method for variable selection and estimation in highdimensional linear log-contrast models. We formulate the proposed procedure as a constrained convex optimization problem, develop efficient algorithms for computation, and provide strong theoretical guarantees.
+License: GPL (>= 2)
+Imports: Rcpp, mvtnorm, Ball, DAAG, RANN, boot, bootstrap, energy,microbenchmark
+LinkingTo: Rcpp
+RoxygenNote: 7.1.1
+Encoding: UTF-8
+Suggests: knitr, rmarkdown
+VignetteBuilder: knitr
+URL: http://github.com/Kaze-Naru/StatComp20051
+BugReports: http://github.com/Kaze-Naru/StatComp20051/issues

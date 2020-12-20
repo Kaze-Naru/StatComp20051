@@ -1,0 +1,161 @@
+---
+title: "Introduction to StatComp20051"
+author: "Qihang Yang"
+date: "2020/12/08"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Introduction to StatComp20051}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+## Overview
+
+__StatComp20051__ is a R package developed to consider variable selection and estimation in high-dimensional regression with compositional covariates. __ftheta__ and __fSIGMA__ Generate the related parameters for multinormal distribution. __fZ__ and __fY__ generate compositional dataset and response vector. __fsto__ is a function of soft thresholding operator. __festimate__ find the estimation of coefficents for high dimensional compositional data.
+
+
+### Codes for testing the preformance of festimate.R using simulation. 
+  These functions are basic functions for simulation procedure, return compositional dataset, response vectory.
+  
+* Generate the mean vector for multinormal distribution.
+```{r}
+# p Dimension of the data.
+# ter is length of nonzero components.
+# co co*p is the mean of the nonzero components
+ftheta <- function(p,ter,co)
+{
+  ttheta <- rep(0,p)
+  for(ii in 1:ter)
+  {
+    ttheta[ii] <- log(co*p)
+  }
+  return(ttheta)  # return The mean vector for multinormal distribution.
+}
+```
+
+* Generate correlation matrix for multinormal distribution.
+```{r}
+# rho:  cor(xi,xj) = rho^abs(i-j).
+fSIGMA <- function(rho,p)
+{
+  repzero <- rep(0,p*p)
+  SIGMA <- matrix(data = repzero, nrow = p, ncol = p)
+  for(ii in 1:p)
+  {
+    for(jj in 1:p)
+      SIGMA[ii,jj] <- rho^(abs(ii-jj))
+  }
+  return(SIGMA)  # return Correlation matrix.
+}
+```
+
+* Generate compositional dataset, and apply log() on each component
+```{r}
+# p is dimension of the data. 
+# m is the number of samples.
+fZ <- function(m,p,ter,co,rho)
+{
+  SIGMAtemp <- fSIGMA(rho,p)
+  thetatemp <- ftheta(p,ter,co)
+  library(mvtnorm)
+  wtemp <- rmvnorm(m, mean = thetatemp, sigma = SIGMAtemp)  #m rows and p columns
+  rrepzero <- rep(0,m*p)
+  xtemp <- matrix(data = rrepzero, nrow = m, ncol = p)
+  for(ii in 1:m)
+  {
+    xexptemp <- exp(wtemp[ii,])
+    sumexptemp <- sum(xexptemp)
+    for(jj in 1:p)
+      xtemp[ii,jj] <- xexptemp[jj]/sumexptemp
+  }
+  ztemp <- log(xtemp)
+  return(ztemp)  # return Log of compositional dataset.
+}
+```
+
+* Generate response vector.
+```{r}
+# zk is Log of componsional dataset.
+# beta is Vector of coefficient. Sum(beta)=0.
+# mean is mean vector when generating composional dataset.
+# sd is standard error for error term in linear regression model.
+fY <- function(zk,beta,mean,sd)
+{
+  q <- length(zk[,1])
+  epsilontemp <- rnorm(q, mean , sd)
+  y <- zk%*%beta+epsilontemp
+  return(y)  # return Response vector.
+}
+```
+
+* Function of soft thresholding operator.
+
+$S_{\lambda }(t)=sgn(t)(|t|-\lambda )_{+}$ is the soft thresholding operator.
+
+```{r}
+# t is A number of input.
+# lambda is Threshold.
+fsto <- function(t,lambda)
+{
+  if(abs(t)<=lambda)
+    return(0)
+  else
+  {
+    if(t>0)
+      return(t-lambda)
+    else
+      return(t+lambda)
+  }  # return Number of fsto(t).  
+}
+```
+
+### Find the estimation of coefficents for high dimensional compositional data, L1 and L2 penalized functions are used.
+
+Here we propose an efficient, easily implemented algorithm based on an iterative modification of coordinate descent that involves combining it with the method of multipliers or the augmented Lagrangian method (Bertsekas, 1996) to deal with the constraint.
+```{r}
+# expect a linear model, and the sum of the coefficietns equals 0.
+# yy is a vector of response variable y
+# ac1 is accuracy when getting an estimation of parameters. High accuracy means more accuracy results.
+# ac2 is accuracy when getting an estimation of parameters. High accuracy means more accuracy results.
+# lambda1 is coefficient for L1 penlized function
+# lambda2 is coefficient for L2 penlized function
+# Z is a matrix of independent variables. It should be log of the compositional data matrix, in which each row should sum to 1, and each component should be between 0 and 1.
+festimate <- function(yy, Z, betastart, alphastart, ac1, ac2, lambda1, lambda2, mu)
+{
+  pp <- length(Z[1, ]) 
+  nn <- length(Z[, 1])  
+  beta1 <- rep(betastart, pp)  # betastart is starting vector for the estimation of coefficient beta.
+  beta2 <- beta1+100
+  alpha1 <- alphastart  # alphastart is starting vector for the estimation of lagrange multiplier for sum of the coefficients.
+  alpha2 <- alphastart+100
+  vv <- rep(0, pp)
+  for(kk in 1:pp)
+    vv[kk] <- sum(Z[, kk]*Z[, kk])/nn ##squared sum of each column
+  
+  while(sqrt(sum((beta1-beta2)*(beta1-beta2))+(alpha1-alpha2)^2)>ac2)
+  {
+    beta2 <- beta1+100   
+    alpha2 <- alpha1
+    while(sqrt(sum((beta1-beta2)*(beta1-beta2)))>ac1)
+    {
+      beta2 <- beta1
+      for(jj in 1:pp)
+      {
+        tempj <- 0
+        for(i in 1:nn)
+        {
+          tempj <- tempj+1/nn*(yy[i]-sum(Z[i,]*beta1)+Z[i,jj]*beta1[jj])*Z[i,jj]
+        }
+        tj <- tempj-mu*(sum(beta1)-beta1[jj]+alpha2)
+        beta1[jj] <- 1/(vv[jj]+2*lambda2+mu)*fsto(tj,lambda1)  # mu is multiplier of the square of the sum of the coefficients in Lagrange method.
+      }    
+    }
+    alpha2 <- alpha1
+    alpha1 <- alpha2+sum(beta1)      
+  }
+  
+  vec <- c(beta1, betastart, alphastart, ac1, ac2, lambda1, lambda2, mu)
+  write.csv(vec,"temptempest.csv")
+  file.append("tempest.csv", "temptempest.csv") 
+  return(beta1)  # return Estimation of coefficients
+}
+```
