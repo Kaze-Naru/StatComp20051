@@ -111,6 +111,8 @@ fsto <- function(t,lambda)
 ### Find the estimation of coefficents for high dimensional compositional data, L1 and L2 penalized functions are used.
 
 Here we propose an efficient, easily implemented algorithm based on an iterative modification of coordinate descent that involves combining it with the method of multipliers or the augmented Lagrangian method (Bertsekas, 1996) to deal with the constraint.
+
+$$L_{\mu}(\beta,\gamma)=\frac{1}{2n}\left \| \gamma-Z\beta \right \|_{2}^{2}+\lambda \left \| \beta \right \|_{1}+\gamma\sum_{j=1}^{p}\beta_{j}+\frac{\mu}{2}\left ( \sum_{j=1}^{p}\beta_{j} \right )^{2}$$
 ```{r}
 # expect a linear model, and the sum of the coefficietns equals 0.
 # yy is a vector of response variable y
